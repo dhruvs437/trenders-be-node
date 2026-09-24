@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { Resend } = require('resend');
+const { google } = require('googleapis');
 const router = express.Router();
 
 // getting the userschema
@@ -8,23 +8,35 @@ const User = require('../schema/userSchema');
 const Otp = require('../schema/otpSchema');
 
 // raw SMTP from Render to Gmail was silently timing out on every port tried
-// (ETIMEDOUT), consistent with the host or Gmail dropping cloud egress IPs -
-// Resend sends over HTTPS, which isn't subject to that
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+// (ETIMEDOUT), consistent with the host or Gmail dropping cloud egress IPs.
+// Resend's sandbox sender could only deliver to our own account without a
+// verified domain. Sending via the Gmail API (HTTPS) as our own account
+// sidesteps both: no SMTP port, and it's a real mailbox that can send to anyone.
+const oAuth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    'https://developers.google.com/oauthplayground'
+);
+oAuth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
+
+function encodeMessage(to, from, subject, text) {
+    const message = [`From: ${from}`, `To: ${to}`, `Subject: ${subject}`, '', text].join('\r\n');
+    return Buffer.from(message)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
 
 function sendEmail(email,text,subject){
-    resend.emails.send({
-        from: FROM_EMAIL,
-        to: email,
-        subject: subject,
-        text: text
-    }).then(({data,error})=>{
-        if (error) {
-            console.log(error);
-        } else {
-            console.log('email sent:', data.id);
-        }
+    gmail.users.messages.send({
+        userId: 'me',
+        requestBody: { raw: encodeMessage(email, process.env.MY_EMAIL, subject, text) }
+    }).then(()=>{
+        console.log('email sent to', email);
+    }).catch((error)=>{
+        console.log(error);
     });
 }
 
