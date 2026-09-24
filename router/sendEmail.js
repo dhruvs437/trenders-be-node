@@ -10,7 +10,13 @@ const Otp = require('../schema/otpSchema');
 let myEmail = process.env.MY_EMAIL
 let myPassword = process.env.MY_APP_PASSWORD
 var transporter = nodemailer.createTransport({
-    service: 'gmail',
+    // explicit host/port (587, STARTTLS) instead of the 'gmail' shorthand
+    // (implicit port 465): some cloud hosts can't reach 465 reliably, and
+    // forcing IPv4 avoids a common ETIMEDOUT caused by broken IPv6 routing
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    family: 4,
     auth: {
         user: myEmail,
         pass: myPassword
