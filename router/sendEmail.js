@@ -1,41 +1,29 @@
 const express = require('express');
-const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const { Resend } = require('resend');
 const router = express.Router();
 
 // getting the userschema
 const User = require('../schema/userSchema');
 const Otp = require('../schema/otpSchema');
 
-let myEmail = process.env.MY_EMAIL
-let myPassword = process.env.MY_APP_PASSWORD
-var transporter = nodemailer.createTransport({
-    // explicit host/port (587, STARTTLS) instead of the 'gmail' shorthand
-    // (implicit port 465): some cloud hosts can't reach 465 reliably, and
-    // forcing IPv4 avoids a common ETIMEDOUT caused by broken IPv6 routing
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    family: 4,
-    auth: {
-        user: myEmail,
-        pass: myPassword
-    }
-});
-
+// raw SMTP from Render to Gmail was silently timing out on every port tried
+// (ETIMEDOUT), consistent with the host or Gmail dropping cloud egress IPs -
+// Resend sends over HTTPS, which isn't subject to that
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
 function sendEmail(email,text,subject){
-    var mailOptions = {
-        from: myEmail,
+    resend.emails.send({
+        from: FROM_EMAIL,
         to: email,
-        subject:subject,
+        subject: subject,
         text: text
-    };
-    transporter.sendMail(mailOptions, function(error, info){
+    }).then(({data,error})=>{
         if (error) {
-        console.log(error);
-        } else{
-            console.log(info.response);
+            console.log(error);
+        } else {
+            console.log('email sent:', data.id);
         }
     });
 }
