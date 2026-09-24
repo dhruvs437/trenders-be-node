@@ -9,6 +9,7 @@ const UserSchema = new mongoose.Schema({
     email:{type:String},
     password:{type:String},
     token:{type:String},
+    role:{type:String, enum:['user','admin'], default:'user'},
     whilist:[{type:String}],
     cart:[{
         productId:{type:String},

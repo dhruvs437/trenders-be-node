@@ -13,23 +13,24 @@ const paymentCheck = ()=>{
     return true;
 }
 
-// getting the userschema 
+const auth = require('../middleware/auth');
+// getting the userschema
 const Order = require('../schema/orderSchema');
 const Product = require('../schema/productSchema');
 const User = require('../schema/userSchema');
 
 
-router.post('/api/order', async (req,res)=>{
+router.post('/api/order', auth, async (req,res)=>{
     try{
         const {details} = req.body;
         if(paymentCheck()){
             for(let i in details.cart){
                 await Product.findOneAndUpdate({productId:details.cart[i].productId},{$inc:{stock:-details.cart[i].qty}});
             }
-            const newOrder = new Order(details);
+            // email comes from the verified user, not the client-supplied details
+            const newOrder = new Order({...details, email:req.user.email});
             await newOrder.save();
-            const d = await User.findOneAndUpdate({email:details.email},{$set:{cart:[]}});
-            // console.log(d);
+            await User.findOneAndUpdate({_id:req.user._id},{$set:{cart:[]}});
             res.status(201).json({message:"order placed successfully"})
         }
     }catch(err){
