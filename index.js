@@ -6,22 +6,25 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
 
-
+dotenv.config();
 
 const app = express();
 
+// CLIENT_ORIGIN is a comma-separated allowlist (see .env.example). Falls back to
+// allow-all only when it's unset, so local dev without a .env keeps working.
+const allowedOrigins = (process.env.CLIENT_ORIGIN || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
 
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : true }));
 app.use(express.json());
 app.use(cookieParser());
 
 app.use(express.static('public'));
 
-// to get data of config.env
-dotenv.config({path:'./config.env'});
-
-// connecting with database 
+// connecting with database
 require('./db/connection')
 
 
